@@ -1,6 +1,5 @@
 var express = require("express");
 var router = express.Router();
-
 let userModel = require("../schemas/users");
 
 
@@ -26,10 +25,11 @@ router.get("/:id", async function (req, res, next) {
 });
 
 router.post("/", async function (req, res, next) {
+
   try {
     let newItem = new userModel({
       username: req.body.username,
-      password: req.body.password, // không mã hoá
+      password: req.body.password,
       email: req.body.email,
       fullName: req.body.fullName,
       avatarUrl: req.body.avatarUrl,

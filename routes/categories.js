@@ -1,7 +1,6 @@
 var express = require('express');
 var router = express.Router();
 let slugify = require('slugify');
-let { GenID } = require('../utils/idHandler')
 let categoryModel = require('../schemas/categories')
 
 //R CUD

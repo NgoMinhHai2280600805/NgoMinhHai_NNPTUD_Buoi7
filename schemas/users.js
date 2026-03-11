@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+let bcrypt = require('bcrypt')
 
 const userSchema = new mongoose.Schema(
   {
@@ -56,5 +57,18 @@ const userSchema = new mongoose.Schema(
   }
 );
 
+userSchema.pre('save', function () {
+  let salt = bcrypt.genSaltSync(10);
+  this.password = bcrypt.hashSync(this.password, salt);
+})
+userSchema.pre('findOneAndUpdate', function () {
+  if (this._update.password) {
+    let salt = bcrypt.genSaltSync(10);
+    this._update.password = bcrypt.hashSync(this._update.password, salt);
+  }
+})
+userSchema.pre('validate', function () {
+
+})
 
 module.exports = mongoose.model("user", userSchema);
