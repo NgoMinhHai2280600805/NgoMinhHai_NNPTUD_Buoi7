@@ -1,70 +1,37 @@
 var express = require('express');
 var router = express.Router();
-//let { dataCategories, dataProducts } = require('../utils/data')
 let slugify = require('slugify');
 let { GenID } = require('../utils/idHandler')
-let categoryContext = require('../schemas/categories')
+let categoryModel = require('../schemas/categories')
 
 //R CUD
 /* GET users listing. */
 router.get('/', async function (req, res, next) {
-  let data = await categoryContext.find({
+  let data = await categoryModel.find({
     isDeleted: false
   })
-  // let result = data.filter(
-  //   function (e) {
-  //     return !e.isDeleted;
-  //   }
-  // )
   res.send(data);
 });
 router.get('/:id', async function (req, res, next) {
   try {
     let id = req.params.id;
-    let result = await categoryContext.find({
+    let result = await categoryModel.find({
       isDeleted: false,
       _id: id
     })
     if (result.length > 0) {
       res.send(result[0])
-    }else{
+    } else {
       res.status(404).send("ID NOT FOUND")
     }
-
   } catch (error) {
     res.status(404).send(error.message)
   }
 
-  // if (result.length == 0) {
-  //   res.status(404).send({
-  //     message: "ID NOT FOUND"
-  //   });
-  // } else {
-  //   res.send(result[0])
-  // }
 });
-router.get('/:id/products', function (req, res, next) {
-  let id = req.params.id;
-  let resultCategory = dataCategories.filter(
-    function (e) {
-      return e.id == id && !e.isDeleted
-    }
-  )
-  if (resultCategory.length == 0) {
-    res.status(404).send({
-      message: "ID NOT FOUND"
-    });
-  } else {
-    let result = dataProducts.filter(
-      function (e) {
-        return e.category.id == id
-      }
-    )
-    res.send(result)
-  }
-});
+
 router.post('/', async function (req, res, next) {
-  let newCate = new categoryContext({
+  let newCate = new categoryModel({
     name: req.body.name,
     slug: slugify(req.body.name,
       {
@@ -82,15 +49,17 @@ router.post('/', async function (req, res, next) {
 router.put('/:id', async function (req, res, next) {
   try {
     let id = req.params.id;
-    let result = await categoryContext.findById(id)
-    let keys = Object.keys(req.body);
-    for (const key of keys) {
-      if (result[key]) {
-        result[key] = req.body[key]
-        result.updatedAt = new Date(Date.now())
-      }
-    }
-    await result.save()
+    // let result = await categoryModel.findById(id)
+    // let keys = Object.keys(req.body);
+    // for (const key of keys) {
+    //     result[key] = req.body[key]
+    //     result.updatedAt = new Date(Date.now())
+    // }
+    // await result.save()
+    let result = await categoryModel.findByIdAndUpdate(
+      id, req.body, {
+      new: true
+    })
     res.send(result)
   } catch (error) {
     res.status(404).send(error.message)
@@ -99,7 +68,7 @@ router.put('/:id', async function (req, res, next) {
 router.delete('/:id', async function (req, res, next) {
   try {
     let id = req.params.id;
-    let result = await categoryContext.findById(id)
+    let result = await categoryModel.findById(id)
     result.isDeleted = true;
     await result.save()
     res.send(result)

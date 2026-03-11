@@ -1,101 +1,94 @@
 var express = require('express');
 var router = express.Router();
-let { dataCategories, dataProducts } = require('../utils/data')
 let slugify = require('slugify');
-let { GenID,getItemByID } = require('../utils/idHandler')
+let productModel = require('../schemas/products')
+
 //R CUD
 /* GET users listing. */
-router.get('/', function (req, res, next) {
-  let result = dataProducts.filter(
-    function (e) {
-      return !e.isDeleted;
+router.get('/', async function (req, res, next) {
+  let queries = req.query;
+  let titleQ = queries.title ? queries.title.toLowerCase() : '';
+  let min = queries.minprice ? queries.minprice : 0;
+  let max = queries.maxprice ? queries.maxprice : 10000;
+  console.log(queries);
+  let data = await productModel.find({
+    isDeleted: false,
+    title: new RegExp(titleQ,'i'),
+    price:{
+      $gte: min,
+      $lte: max
     }
-  )
-  res.send(result);
-});
-router.get('/:id', function (req, res, next) {
-  let id = req.params.id;
-  let result = dataProducts.filter(
-    function (e) {
-      return e.id == id && !e.isDeleted
-    }
-  )
-  if (result.length == 0) {
-    res.status(404).send({
-      message: "ID NOT FOUND"
-    });
-  } else {
-    res.send(result[0])
-  }
+  }).populate({
+    path: 'category',
+    select: 'name'
+  })
+  res.send(data);
 });
 
-router.post('/', function (req, res, next) {
-  let getCate = getItemByID(req.body.category, dataCategories);
-  console.log(getCate);
-  if (!getCate) {
-    res.status(404).send({
-      message: "ID CATE NOT FOUND"
+router.get('/:id', async function (req, res, next) {
+  try {
+    let id = req.params.id;
+    let result = await productModel.find({
+      isDeleted: false,
+      _id: id
     })
-  } else {
-    let newProduct = {
-      id: GenID(dataProducts),
-      title: req.body.title,
-      slug: slugify(req.body.title,
-        {
-          replacement: '-',
-          remove: undefined,
-          lower: true,
-          trim: true
-        }
-      ),
-      images: req.body.images,
-      description: req.body.description,  
-      creationAt: new Date(Date.now()),
-      updatedAt: new Date(Date.now()),
-      category: getCate
+    if (result.length > 0) {
+      res.send(result[0])
+    } else {
+      res.status(404).send("ID NOT FOUND")
     }
-    res.send(newProduct)
+  } catch (error) {
+    res.status(404).send(error.message)
   }
-})
-router.put('/:id', function (req, res, next) {
-  let id = req.params.id;
-  let result = dataProducts.filter(
-    function (e) {
-      return e.id == id && !e.isDeleted
-    }
-  )
-  if (result.length == 0) {
-    res.status(404).send({
-      message: "ID NOT FOUND"
-    });
-  } else {
-    result = result[0];
-    let keys = Object.keys(req.body);
-    for (const key of keys) {
-      if (result[key]) {
-        result[key] = req.body[key]
-        result.updatedAt = new Date(Date.now())
+
+});
+
+router.post('/', async function (req, res, next) {
+  let newProduct = new productModel({
+    title: req.body.title,
+    slug: slugify(req.body.title,
+      {
+        replacement: '-',
+        remove: undefined,
+        lower: true,
+        trim: true
       }
-    }
+    ), price: req.body.price,
+    images: req.body.images,
+    description: req.body.description,
+    category: req.body.category
+  })
+  await newProduct.save();
+  res.send(newProduct)
+})
+router.put('/:id', async function (req, res, next) {
+  try {
+    let id = req.params.id;
+    // let result = await productModel.findById(id)
+    // let keys = Object.keys(req.body);
+    // for (const key of keys) {
+    //     result[key] = req.body[key]
+    //     result.updatedAt = new Date(Date.now())
+    // }
+    // await result.save()
+    let result = await productModel.findByIdAndUpdate(
+      id, req.body, {
+      new: true
+    })
     res.send(result)
+  } catch (error) {
+    res.status(404).send(error.message)
   }
 })
-router.delete('/:id', function (req, res, next) {
-  let id = req.params.id;
-  let result = dataProducts.filter(
-    function (e) {
-      return e.id == id && !e.isDeleted
-    }
-  )
-  if (result.length == 0) {
-    res.status(404).send({
-      message: "ID NOT FOUND"
-    });
-  } else {
-    result = result[0];
+router.delete('/:id', async function (req, res, next) {
+  try {
+    let id = req.params.id;
+    let result = await productModel.findById(id)
     result.isDeleted = true;
-    result.updatedAt = new Date(Date.now())
+    await result.save()
     res.send(result)
+  } catch (error) {
+    res.status(404).send(error.message)
   }
 })
 
