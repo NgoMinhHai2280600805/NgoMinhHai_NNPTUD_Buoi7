@@ -3,9 +3,8 @@ var router = express.Router();
 let userController = require('../controllers/users')
 let bcrypt = require('bcrypt')
 let jwt = require('jsonwebtoken')
-let crypto = require('crypto')
+let fs = require('fs');
 const { CheckLogin } = require("../utils/authHandler");
-const { ChangePasswordValidator, validatedResult } = require("../utils/validateHandler");
 
 router.post('/register', async function (req, res, next) {
     try {
@@ -43,11 +42,6 @@ router.post('/login', async function (req, res, next) {
             }, 'secret', {
                 expiresIn: '1h'
             })
-            res.cookie('NNPTUD_S4', token, {
-                maxAge: 30 * 24 * 3600 * 1000,
-                httpOnly: true,
-                secure: false
-            })
             res.send(token)
         } else {
             user.loginCount++;
@@ -67,58 +61,36 @@ router.post('/login', async function (req, res, next) {
     }
 
 })
-router.get('/me', CheckLogin, function (req, res, next) {
+router.get('/me',CheckLogin,function(req,res,next){
     res.send(req.user)
 })
-router.post('/logout', CheckLogin, function (req, res, next) {
-    res.cookie('NNPTUD_S4', "", {
-        maxAge: 0,
-        httpOnly: true,
-        secure: false
-    })
-    res.send({
-        message: "logout"
-    })
-})
 
-router.get('/changepassword', CheckLogin, ChangePasswordValidator, validatedResult, async function (req, res, next) {
-    let { oldpassword, newpassword } = req.body;
-    let user = req.user;
-    if (bcrypt.compareSync(oldpassword, user.password)) {
-        user.password = newpassword;
+router.post('/changepassword', CheckLogin, async function (req, res, next) {
+    try {
+        const { oldPassword, newPassword } = req.body;
+        
+        if (newPassword.length < 6) {
+            return res.status(400).send('Mật khẩu mới phải dài hơn 6 ký tự');
+        }
+
+        let user = req.user;
+
+        const isMatch = bcrypt.compareSync(oldPassword, user.password);
+        if (!isMatch) {
+            return res.status(400).send('Mật khẩu cũ không đúng');
+        }
+
+        const hashedNewPassword = bcrypt.hashSync(newPassword, 10);
+        user.password = hashedNewPassword;
+
         await user.save();
-        res.send({ message: "da cap nhat" });
-    } else {
-        res.send({ message: "old password k dung" })
+        res.send('Mật khẩu đã được thay đổi thành công');
+    } catch (error) {
+        res.status(500).send({
+            message: 'Lỗi trong quá trình thay đổi mật khẩu',
+            error: error.message
+        });
     }
-})
-router.post('/forgotpassword', async function (req, res, next) {
-    let email = req.body.email;
-    let user = await userController.GetAnUserByEmail(email);
-    if (user) {
-        user.forgotPasswordToken = crypto.randomBytes(32).toString('hex');
-        user.forgotPasswordTokenExp = Date.now() + 10 * 60000;
-        let url = "http://localhost:3000/api/v1/auth/resetpassword/" + user.forgotPasswordToken
-        await user.save();
-        console.log(url);
-    }
-    res.send({
-        message: "check mail"
-    })
-})
-router.post('/resetpassword/:token', async function (req, res, next) {
-    let token = req.params.token;
-    let password = req.body.password
-    let user  = await userController.GetAnUserByToken(token);
-    if(user){
-        user.password = password;
-        user.forgotPasswordToken = null;
-        user.forgotPasswordTokenExp = null;
-        await user.save();
-        res.send({
-            message:"update thanh cong"
-        })
-    }
-})
+});
 
 module.exports = router;
